@@ -22,7 +22,8 @@ def _run_tunnel_thread(port: int = 8088):
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            encoding="utf-8",
+            errors="ignore",
             bufsize=1,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
