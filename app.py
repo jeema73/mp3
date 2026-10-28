@@ -4,6 +4,7 @@ import sys
 import time
 import zipfile
 import urllib.parse
+import subprocess
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import yt_dlp
+from mutagen.id3 import ID3, TIT2, TPE1, TRCK, APIC
+from mutagen.mp3 import MP3
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOAD_DIR = BASE_DIR / "downloads"
@@ -29,16 +32,16 @@ app = FastAPI(title="기나미 MP3 추출기 - 4K High Quality Audio")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
-# 스레드 풀 (동시 변환 작업 최대 3개)
+# 비동기 변환 스레드 풀
 executor = ThreadPoolExecutor(max_workers=3)
 
 # 메모리 내 작업 상태 저장소
-# task_id: {"id": str, "title": str, "status": str, "percent": float, "speed": str, "eta": str, "filename": str, "filesize": str, "error": str}
 tasks: Dict[str, Dict[str, Any]] = {}
 
 def sanitize_filename(name: str) -> str:
     """윈도우 파일명 금지 문자 제거 및 안전한 파일명 생성"""
     name = re.sub(r'[\\/*?:"<>|]', '', name)
+    name = re.sub(r'\s+', ' ', name)
     name = name.strip()
     return name or "audio"
 
@@ -57,6 +60,60 @@ def format_size(bytes_val: int) -> str:
     mb = bytes_val / (1024 * 1024)
     return f"{mb:.1f} MB"
 
+def parse_description_timestamps(desc: str, total_duration: Optional[int] = None) -> List[Dict[str, Any]]:
+    """유튜브 설명란에서 00:00 형태의 곡별 타임스탬프 자동 파싱"""
+    if not desc:
+        return []
+    
+    lines = desc.split('\n')
+    raw_tracks = []
+    
+    # 01:23 곡명 또는 [01:23] 곡명 또는 곡명 01:23 매칭
+    pattern_start = re.compile(r'^\s*(?:\[|\()?(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:\]|\))?\s*[-–—~|.]?\s*(.+)$')
+    pattern_end = re.compile(r'^\s*(.+?)\s*[-–—~|.]?\s*(?:\[|\()?(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:\]|\))?\s*$')
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        m1 = pattern_start.match(line)
+        if m1:
+            h, m, s, title = m1.groups()
+            sec = (int(h) * 3600 if h else 0) + int(m) * 60 + int(s)
+            raw_tracks.append({"start_time": sec, "title": title.strip()})
+            continue
+        m2 = pattern_end.match(line)
+        if m2:
+            title, h, m, s = m2.groups()
+            sec = (int(h) * 3600 if h else 0) + int(m) * 60 + int(s)
+            raw_tracks.append({"start_time": sec, "title": title.strip()})
+    
+    if len(raw_tracks) < 2:
+        return []
+
+    # 시간순 정렬
+    raw_tracks.sort(key=lambda x: x["start_time"])
+    
+    # 각 곡의 종료 시간(end_time) 계산
+    chapters = []
+    for i in range(len(raw_tracks)):
+        st = raw_tracks[i]["start_time"]
+        if i + 1 < len(raw_tracks):
+            et = raw_tracks[i + 1]["start_time"]
+        else:
+            et = total_duration or (st + 240)
+        
+        # 유효한 길이인지 검증
+        if et > st:
+            chapters.append({
+                "title": raw_tracks[i]["title"],
+                "start_time": st,
+                "end_time": et
+            })
+            
+    return chapters if len(chapters) >= 2 else []
+
+
 class AnalyzeRequest(BaseModel):
     url: str
 
@@ -65,6 +122,11 @@ class ConvertTrackRequest(BaseModel):
     url: str
     title: str
     bitrate: Optional[str] = "320"
+    parent_id: Optional[str] = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    chapter_index: Optional[int] = None
+    uploader: Optional[str] = None
 
 class BatchConvertRequest(BaseModel):
     tracks: List[ConvertTrackRequest]
@@ -98,7 +160,7 @@ async def get_system_status():
 
 @app.post("/api/analyze")
 async def analyze_url(req: AnalyzeRequest):
-    """유튜브 링크(단일 영상 또는 플레이리스트) 분석"""
+    """유튜브 링크(단일 영상, 플레이리스트, 또는 다중 곡 믹스) 분석"""
     url = req.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="유튜브 URL을 입력해주세요.")
@@ -131,6 +193,8 @@ async def analyze_url(req: AnalyzeRequest):
     playlist_title = info.get('title', 'YouTube Playlist') if is_playlist else None
     
     tracks = []
+    has_chapters = False
+    chapters_list = []
     
     if is_playlist:
         entries = info.get('entries') or []
@@ -142,18 +206,14 @@ async def analyze_url(req: AnalyzeRequest):
             duration = entry.get('duration')
             uploader = entry.get('uploader') or entry.get('channel') or "YouTube"
             
-            # 썸네일
             thumbnail = entry.get('thumbnail')
             if not thumbnail and video_id:
                 thumbnail = f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
             
-            # 비디오 URL 복원
             video_url = entry.get('url')
             if not video_url or not video_url.startswith('http'):
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
                 
-            # 이미 다운로드되어 있는 파일이 있는지 확인
-            safe_title = sanitize_filename(title)
             existing_file = None
             for mp3_path in DOWNLOAD_DIR.glob(f"*{video_id}*.mp3"):
                 existing_file = mp3_path.name
@@ -177,11 +237,48 @@ async def analyze_url(req: AnalyzeRequest):
         uploader = info.get('uploader') or info.get('channel') or "YouTube"
         thumbnail = info.get('thumbnail') or f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
         
-        safe_title = sanitize_filename(title)
+        # 챕터 감지 (유튜브 자체 챕터 또는 설명란 타임스탬프)
+        raw_chapters = info.get('chapters') or []
+        if not raw_chapters and info.get('description'):
+            raw_chapters = parse_description_timestamps(info.get('description'), duration)
+            
+        if raw_chapters and len(raw_chapters) >= 2:
+            has_chapters = True
+            for idx, ch in enumerate(raw_chapters):
+                st = ch.get('start_time', 0)
+                et = ch.get('end_time', duration or (st + 240))
+                ch_title = ch.get('title') or f"Track {idx+1}"
+                ch_duration = int(et - st) if et else None
+                ch_id = f"{video_id}_ch{idx+1}"
+                
+                # 이미 분리된 파일이 있는지 확인
+                existing_ch_file = None
+                for mp3_path in DOWNLOAD_DIR.glob(f"*{ch_id}*.mp3"):
+                    existing_ch_file = mp3_path.name
+                    break
+
+                chapters_list.append({
+                    "id": ch_id,
+                    "parent_id": video_id,
+                    "chapter_index": idx + 1,
+                    "title": ch_title,
+                    "uploader": uploader,
+                    "start_time": st,
+                    "end_time": et,
+                    "duration": ch_duration,
+                    "duration_str": format_duration(ch_duration),
+                    "thumbnail": thumbnail,
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "is_downloaded": existing_ch_file is not None,
+                    "filename": existing_ch_file
+                })
+
         existing_file = None
         for mp3_path in DOWNLOAD_DIR.glob(f"*{video_id}*.mp3"):
-            existing_file = mp3_path.name
-            break
+            # 챕터 분리 파일이 아닌 원본 통 파일인지 확인
+            if "_ch" not in mp3_path.name:
+                existing_file = mp3_path.name
+                break
 
         tracks.append({
             "id": video_id,
@@ -198,6 +295,9 @@ async def analyze_url(req: AnalyzeRequest):
     return {
         "success": True,
         "is_playlist": is_playlist,
+        "has_chapters": has_chapters,
+        "chapters_count": len(chapters_list),
+        "chapters": chapters_list,
         "title": playlist_title or tracks[0]["title"],
         "uploader": info.get('uploader') or info.get('channel') or "",
         "total_count": len(tracks),
@@ -205,8 +305,59 @@ async def analyze_url(req: AnalyzeRequest):
     }
 
 
-def download_and_convert_task(track_id: str, url: str, title: str, bitrate: str):
-    """백그라운드에서 실제 다운로드 및 고음질 MP3 변환 수행"""
+def download_parent_audio(video_id: str, url: str, bitrate: str) -> Optional[Path]:
+    """챕터 분리를 위해 부모 오디오를 전체 다운로드"""
+    parent_file = None
+    for f in DOWNLOAD_DIR.glob(f"*{video_id}*.mp3"):
+        if "_ch" not in f.name:
+            return f
+
+    out_tmpl = str(DOWNLOAD_DIR / f"full_temp [{video_id}].%(ext)s")
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': out_tmpl,
+        'windowsfilenames': True,
+        'quiet': True,
+        'no_warnings': True,
+        'postprocessors': [
+            {
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': bitrate,
+            },
+            {
+                'key': 'FFmpegMetadata',
+                'add_metadata': True,
+            },
+            {
+                'key': 'EmbedThumbnail',
+                'already_have_thumbnail': False,
+            }
+        ],
+        'writethumbnail': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+
+    for f in DOWNLOAD_DIR.glob(f"*{video_id}*.mp3"):
+        if "_ch" not in f.name:
+            return f
+    return None
+
+
+def download_and_convert_task(
+    track_id: str, 
+    url: str, 
+    title: str, 
+    bitrate: str,
+    parent_id: Optional[str] = None,
+    start_time: Optional[float] = None,
+    end_time: Optional[float] = None,
+    chapter_index: Optional[int] = None,
+    uploader: Optional[str] = None
+):
+    """백그라운드에서 실제 다운로드 및 고음질 MP3 변환 또는 챕터 분리 수행"""
     tasks[track_id] = {
         "id": track_id,
         "title": title,
@@ -220,7 +371,80 @@ def download_and_convert_task(track_id: str, url: str, title: str, bitrate: str)
     }
 
     safe_title = sanitize_filename(title)
-    # 파일명 템플릿: [곡제목]_[영상ID].mp3
+
+    # 1. 특정 챕터/구간 분리 요청인 경우
+    if parent_id and start_time is not None and end_time is not None:
+        try:
+            tasks[track_id].update({
+                "status": "downloading",
+                "percent": 30.0,
+                "speed": "원본 음원 준비 중...",
+                "eta": "잠시만 기다려주세요"
+            })
+            
+            # 부모 전체 오디오 확보
+            parent_mp3 = download_parent_audio(parent_id, url, bitrate)
+            if not parent_mp3 or not parent_mp3.exists():
+                raise Exception("원본 음원을 다운로드하지 못했습니다.")
+
+            tasks[track_id].update({
+                "status": "converting",
+                "percent": 80.0,
+                "speed": f"곡 분리 중 ({format_duration(int(start_time))} ~ {format_duration(int(end_time))})",
+                "eta": "FFmpeg 분할"
+            })
+
+            # 분리될 챕터 파일명
+            chapter_filename = f"{safe_title} [{track_id}].mp3"
+            chapter_path = DOWNLOAD_DIR / chapter_filename
+
+            # FFmpeg 정확한 구간 슬라이싱 (-ss, -to)
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", str(start_time),
+                "-to", str(end_time),
+                "-i", str(parent_mp3),
+                "-c:a", "libmp3lame",
+                "-b:a", f"{bitrate}k",
+                "-map_metadata", "0",
+                str(chapter_path)
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode != 0:
+                raise Exception(f"FFmpeg 분할 실패: {res.stderr.decode('utf-8', errors='ignore')[:200]}")
+
+            # Mutagen으로 ID3 태그 주입
+            try:
+                audio = MP3(str(chapter_path), ID3=ID3)
+                if audio.tags is None:
+                    audio.add_tags()
+                audio.tags.add(TIT2(encoding=3, text=title))
+                if uploader:
+                    audio.tags.add(TPE1(encoding=3, text=uploader))
+                if chapter_index:
+                    audio.tags.add(TRCK(encoding=3, text=str(chapter_index)))
+                audio.save()
+            except Exception as tag_err:
+                print(f"태그 저장 경고: {tag_err}")
+
+            filesize = format_size(chapter_path.stat().st_size)
+            tasks[track_id].update({
+                "status": "completed",
+                "percent": 100.0,
+                "speed": "완료",
+                "eta": "00:00",
+                "filename": chapter_filename,
+                "filesize": filesize
+            })
+            return
+        except Exception as e:
+            tasks[track_id].update({
+                "status": "error",
+                "error": str(e)
+            })
+            return
+
+    # 2. 일반 단일 영상/트랙 변환
     out_tmpl = str(DOWNLOAD_DIR / f"{safe_title} [{track_id}].%(ext)s")
 
     def progress_hook(d):
@@ -236,9 +460,7 @@ def download_and_convert_task(track_id: str, url: str, title: str, bitrate: str)
                 except:
                     percent = 0.0
             
-            # 변환 단계가 남아있으므로 다운로드는 최대 92%까지만 표시
             display_percent = min(percent * 0.92, 92.0)
-            
             tasks[track_id].update({
                 "status": "downloading",
                 "percent": round(display_percent, 1),
@@ -282,11 +504,11 @@ def download_and_convert_task(track_id: str, url: str, title: str, bitrate: str)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # 완료된 MP3 파일 검색
         target_mp3 = None
         for file in DOWNLOAD_DIR.glob(f"*{track_id}*.mp3"):
-            target_mp3 = file
-            break
+            if "_ch" not in file.name:
+                target_mp3 = file
+                break
 
         if target_mp3 and target_mp3.exists():
             filesize = format_size(target_mp3.stat().st_size)
@@ -312,26 +534,47 @@ def download_and_convert_task(track_id: str, url: str, title: str, bitrate: str)
 
 @app.post("/api/convert")
 async def start_convert(req: ConvertTrackRequest):
-    """단일 트랙 변환 요청"""
+    """단일 트랙 또는 챕터 분리 변환 요청"""
     bitrate = req.bitrate or "320"
-    executor.submit(download_and_convert_task, req.id, req.url, req.title, bitrate)
+    executor.submit(
+        download_and_convert_task, 
+        req.id, 
+        req.url, 
+        req.title, 
+        bitrate,
+        req.parent_id,
+        req.start_time,
+        req.end_time,
+        req.chapter_index,
+        req.uploader
+    )
     return {"success": True, "message": "변환 작업이 시작되었습니다.", "track_id": req.id}
 
 
 @app.post("/api/convert-batch")
 async def start_batch_convert(req: BatchConvertRequest):
-    """여러 트랙 일괄 변환 요청"""
+    """여러 트랙(또는 전 챕터) 일괄 변환 요청"""
     bitrate = req.bitrate or "320"
     for track in req.tracks:
-        executor.submit(download_and_convert_task, track.id, track.url, track.title, bitrate)
+        executor.submit(
+            download_and_convert_task, 
+            track.id, 
+            track.url, 
+            track.title, 
+            bitrate,
+            track.parent_id,
+            track.start_time,
+            track.end_time,
+            track.chapter_index,
+            track.uploader
+        )
     return {"success": True, "message": f"{len(req.tracks)}곡 변환 작업이 큐에 추가되었습니다."}
 
 
 @app.get("/api/progress/{track_id}")
 async def get_progress(track_id: str):
-    """특정 트랙의 실시간 변환 진행률 반환"""
+    """특정 트랙/챕터의 실시간 변환 진행률 반환"""
     if track_id not in tasks:
-        # 이미 이전에 다운로드된 파일이 있는지 확인
         for file in DOWNLOAD_DIR.glob(f"*{track_id}*.mp3"):
             filesize = format_size(file.stat().st_size)
             return {
@@ -351,7 +594,6 @@ async def get_progress(track_id: str):
 
 @app.get("/api/progress-all")
 async def get_all_progress():
-    """모든 활성 작업의 진행 상태 일괄 반환"""
     return tasks
 
 
@@ -373,7 +615,6 @@ async def create_zip_archive(req: ZipRequest):
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for file in matched_files:
-            # zip 파일 내에는 깔끔하게 원래 곡명만 표시
             clean_arcname = re.sub(r'\s*\[.*?\]\.mp3$', '.mp3', file.name)
             zipf.write(file, arcname=clean_arcname)
 
@@ -390,14 +631,12 @@ async def create_zip_archive(req: ZipRequest):
 
 @app.get("/api/download/{filename:path}")
 async def download_file(filename: str):
-    """MP3 또는 ZIP 파일 다운로드 (한글 파일명 완벽 지원)"""
     decoded_name = urllib.parse.unquote(filename)
     file_path = DOWNLOAD_DIR / decoded_name
 
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="요청한 파일이 존재하지 않습니다.")
 
-    # RFC 5987 규격으로 한글 파일명 인코딩 헤더 생성
     quoted_name = urllib.parse.quote(file_path.name)
     headers = {
         "Content-Disposition": f"attachment; filename*=UTF-8''{quoted_name}"
@@ -409,7 +648,6 @@ async def download_file(filename: str):
 
 @app.get("/api/stream/{filename:path}")
 async def stream_audio(filename: str):
-    """웹 브라우저에서 MP3 바로 미리듣기 스트리밍"""
     decoded_name = urllib.parse.unquote(filename)
     file_path = DOWNLOAD_DIR / decoded_name
 
@@ -421,9 +659,10 @@ async def stream_audio(filename: str):
 
 @app.delete("/api/clean-cache")
 async def clean_cache():
-    """임시 다운로드 파일 청소 (디스크 용량 확보)"""
     deleted_count = 0
     for f in DOWNLOAD_DIR.glob("*.*"):
+        if f.name == ".gitkeep":
+            continue
         try:
             f.unlink()
             deleted_count += 1

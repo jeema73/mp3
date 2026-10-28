@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>기나미 MP3 추출기</title>
 
   <!-- Tailwind CSS CDN -->
@@ -59,105 +59,98 @@
       --ghibli-sun: #d97736;
     }
 
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
       background: radial-gradient(circle at 10% 10%, #fffdf8 0%, #faf5ea 50%, #f4ece0 100%);
       color: #2c2822;
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     h1, h2, h3, .font-ghibli {
       font-family: 'Gowun Dodum', 'Pretendard', sans-serif;
     }
 
-    /* 포근한 카드 스타일 */
+    /* 포근한 카드 스타일 (모바일 반응형 곡률) */
     .ghibli-card {
       background: rgba(255, 255, 255, 0.95);
       border: 1px solid #e7ded0;
-      border-radius: 1.5rem;
+      border-radius: 1.25rem;
       box-shadow: 0 10px 25px -5px rgba(60, 48, 30, 0.05), 0 4px 10px -2px rgba(60, 48, 30, 0.02);
       backdrop-filter: blur(8px);
+    }
+    @media (min-width: 640px) {
+      .ghibli-card {
+        border-radius: 1.5rem;
+      }
     }
 
     /* 친환경 우드/지브리풍 인풋 */
     .ghibli-input {
       background-color: #faf7f0;
       border: 1.5px solid #ded5c4;
-      border-radius: 1rem;
+      border-radius: 0.875rem;
       color: #2c2822;
       transition: all 0.2s ease;
     }
     .ghibli-input:focus {
       background-color: #ffffff;
       border-color: #3d7a5a;
-      box-shadow: 0 0 0 4px rgba(61, 122, 90, 0.15);
+      box-shadow: 0 0 0 3px rgba(61, 122, 90, 0.15);
       outline: none;
     }
 
-    /* 버튼 스타일 */
+    /* 터치 친화적 버튼 스타일 (최소 터치높이 42px) */
     .btn-forest {
       background: linear-gradient(135deg, #2d5a43 0%, #3a7556 100%);
       color: #ffffff;
-      box-shadow: 0 4px 14px rgba(45, 90, 67, 0.28);
-      transition: all 0.2s ease;
+      box-shadow: 0 3px 12px rgba(45, 90, 67, 0.25);
+      transition: all 0.18s ease;
+      min-height: 42px;
     }
-    .btn-forest:hover:not(:disabled) {
-      background: linear-gradient(135deg, #244936 0%, #316449 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(45, 90, 67, 0.35);
+    .btn-forest:active {
+      transform: scale(0.98);
     }
     .btn-forest:disabled {
-      opacity: 0.6;
+      opacity: 0.55;
       cursor: not-allowed;
     }
 
     .btn-sunlight {
       background: linear-gradient(135deg, #d97736 0%, #c26527 100%);
       color: #ffffff;
-      box-shadow: 0 4px 14px rgba(217, 119, 54, 0.28);
-      transition: all 0.2s ease;
+      box-shadow: 0 3px 12px rgba(217, 119, 54, 0.25);
+      transition: all 0.18s ease;
+      min-height: 42px;
     }
-    .btn-sunlight:hover:not(:disabled) {
-      background: linear-gradient(135deg, #c26527 0%, #ab561e 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(217, 119, 54, 0.35);
+    .btn-sunlight:active {
+      transform: scale(0.98);
     }
 
     .btn-outline {
       background-color: #faf4e6;
       border: 1.5px solid #ded5c4;
       color: #4a3e2f;
-      transition: all 0.2s ease;
+      transition: all 0.18s ease;
+      min-height: 42px;
     }
-    .btn-outline:hover {
+    .btn-outline:active {
       background-color: #f1ebd8;
       border-color: #c9bea9;
-      color: #2d5a43;
+      transform: scale(0.98);
     }
 
-    /* 귀여운 체크박스 */
+    /* 커스텀 체크박스 */
     .custom-checkbox {
       accent-color: #2d5a43;
-      width: 1.25rem;
-      height: 1.25rem;
+      width: 1.35rem;
+      height: 1.35rem;
       border-radius: 0.375rem;
       cursor: pointer;
-    }
-
-    /* 부드러운 스크롤바 */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #faf4e6;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #c8bdab;
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #9d917d;
     }
 
     /* 프로그레스바 펄스 애니메이션 */
@@ -170,81 +163,89 @@
       background-size: 200% 100%;
       animation: shimmer 2s infinite linear;
     }
+
+    /* 아이폰 하단 홈바 여백 지원 */
+    .pb-safe {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
   </style>
 </head>
-<body class="p-3 sm:p-6 lg:p-8">
+<body class="p-2.5 sm:p-6 lg:p-8">
 
   <!-- 상단 헤더 바 -->
-  <header class="max-w-6xl mx-auto mb-6">
-    <div class="ghibli-card p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-      <a href="/" class="flex items-center gap-3.5 group transition-transform hover:scale-[1.01]" title="메인 화면으로 이동">
-        <div class="relative w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-[#2d5a43]/30 shadow-md">
+  <header class="max-w-5xl mx-auto mb-4 sm:mb-6">
+    <div class="ghibli-card p-3.5 sm:p-5 flex items-center justify-between gap-3">
+      <!-- 로고 및 홈 링크 -->
+      <a href="/" class="flex items-center gap-2.5 sm:gap-3.5 group min-w-0" title="메인 화면으로 이동">
+        <div class="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden ring-2 ring-[#2d5a43]/30 shadow-md shrink-0">
           <img src="/static/profile.jpg" alt="기나미" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
           <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-xl sm:text-2xl font-bold text-ghibli-earth tracking-tight group-hover:text-ghibli-forest transition-colors">기나미 MP3 추출기</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#eaf3ec] text-[#2d5a43] border border-[#cce2d3]">
-              🌱 Premium Edition
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <h1 class="text-base sm:text-xl font-bold text-ghibli-earth tracking-tight truncate group-hover:text-ghibli-forest transition-colors">
+              기나미 MP3 추출기
+            </h1>
+            <span class="hidden xs:inline-block px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-[#eaf3ec] text-[#2d5a43] border border-[#cce2d3] shrink-0">
+              🌱 Premium
             </span>
           </div>
-          <p class="text-xs sm:text-sm text-ghibli-subText mt-0.5">
-            단일 영상 & 재생목록(Playlist) 초고음질 320kbps MP3 변환기
+          <p class="text-[11px] sm:text-xs text-ghibli-subText truncate">
+            유튜브 단일곡 • 플레이리스트 • 믹스 챕터 분리
           </p>
         </div>
       </a>
 
-      <!-- 상단 우측 상태 표시 및 캐시 정리 -->
-      <div class="flex items-center gap-2.5 sm:gap-3 text-xs sm:text-sm">
-        <div id="statusBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ghibli-paper border border-ghibli-warmBorder text-ghibli-forest font-medium">
+      <!-- 상단 우측 캐시 정리 버튼 -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div id="statusBadge" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ghibli-paper border border-ghibli-warmBorder text-ghibli-forest text-xs font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span id="systemVersion">정상 작동 중</span>
         </div>
-        <button onclick="cleanCache()" title="임시 다운로드 파일 청소" class="btn-outline px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5">
+        <button onclick="cleanCache()" title="임시 다운로드 파일 정리" class="btn-outline px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5">
           <i class="fa-solid fa-broom text-ghibli-sunlight"></i>
-          <span>저장소 청소</span>
+          <span class="hidden sm:inline">저장소 청소</span>
         </button>
       </div>
     </div>
   </header>
 
   <!-- 메인 작업 영역 -->
-  <main class="max-w-6xl mx-auto space-y-6">
+  <main class="max-w-5xl mx-auto space-y-4 sm:space-y-6">
 
     <!-- 1. URL 입력 및 옵션 설정 카드 -->
-    <section class="ghibli-card p-5 sm:p-7">
-      <div class="flex items-center justify-between mb-4">
+    <section class="ghibli-card p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="w-7 h-7 rounded-lg bg-ghibli-matcha flex items-center justify-center text-ghibli-forest text-sm font-bold">1</span>
-          <h2 class="text-lg font-bold text-ghibli-earth">유튜브 주소 입력</h2>
+          <span class="w-6 h-6 rounded-lg bg-ghibli-matcha flex items-center justify-center text-ghibli-forest text-xs font-bold">1</span>
+          <h2 class="text-sm sm:text-base font-bold text-ghibli-earth">유튜브 주소 입력</h2>
         </div>
-        <div class="flex items-center gap-2 text-xs text-ghibli-subText">
-          <span class="inline-flex items-center gap-1"><i class="fa-solid fa-check text-emerald-600"></i> 단일 영상</span>
-          <span class="text-gray-300">|</span>
-          <span class="inline-flex items-center gap-1"><i class="fa-solid fa-list-check text-emerald-600"></i> 플레이리스트 전곡</span>
-          <span class="text-gray-300">|</span>
-          <span class="inline-flex items-center gap-1"><i class="fa-solid fa-tag text-emerald-600"></i> 앨범아트 삽입</span>
+        <div class="flex items-center gap-1.5 text-[11px] text-ghibli-subText">
+          <span class="hidden sm:inline"><i class="fa-solid fa-check text-emerald-600"></i> 단일 영상</span>
+          <span class="hidden sm:inline text-gray-300">|</span>
+          <span class="hidden sm:inline"><i class="fa-solid fa-list-check text-emerald-600"></i> 플레이리스트</span>
+          <span class="hidden sm:inline text-gray-300">|</span>
+          <span><i class="fa-solid fa-scissors text-emerald-600"></i> 곡별 자동 분리</span>
         </div>
       </div>
 
-      <div class="space-y-4">
-        <!-- 인풋 필드 & 버튼 -->
-        <div class="relative flex flex-col sm:flex-row gap-2.5">
+      <div class="space-y-3">
+        <!-- 인풋 필드 & 버튼 (모바일 세로 배치 최적화) -->
+        <div class="flex flex-col sm:flex-row gap-2">
           <div class="relative flex-1">
-            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-              <i class="fa-brands fa-youtube text-red-500 text-lg"></i>
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-red-500 text-base">
+              <i class="fa-brands fa-youtube"></i>
             </span>
             <input 
               type="text" 
               id="youtubeUrl" 
-              placeholder="유튜브 영상 링크 또는 플레이리스트 주소를 붙여넣으세요 (예: https://...)" 
-              class="ghibli-input w-full pl-11 pr-24 py-3.5 text-sm sm:text-base font-medium placeholder-gray-400"
+              placeholder="유튜브 링크를 붙여넣으세요..." 
+              class="ghibli-input w-full pl-9 pr-20 py-3 text-xs sm:text-sm font-medium placeholder-gray-400"
               onkeypress="if(event.key === 'Enter') analyzeUrl()"
             />
             <button 
               onclick="pasteClipboard()" 
-              class="absolute inset-y-1.5 right-1.5 px-3 rounded-lg text-xs font-semibold text-ghibli-forest bg-ghibli-matcha hover:bg-emerald-100 transition-colors flex items-center gap-1"
+              class="absolute inset-y-1.5 right-1.5 px-2.5 rounded-lg text-xs font-semibold text-ghibli-forest bg-ghibli-matcha hover:bg-emerald-100 transition-colors flex items-center gap-1"
               title="클립보드 주소 붙여넣기"
             >
               <i class="fa-regular fa-clipboard"></i> 붙여넣기
@@ -254,84 +255,112 @@
           <button 
             id="btnAnalyze" 
             onclick="analyzeUrl()" 
-            class="btn-forest px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 shrink-0"
+            class="btn-forest w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0"
           >
             <i class="fa-solid fa-magnifying-glass"></i>
             <span>주소 분석하기</span>
           </button>
         </div>
 
-        <!-- 옵션: 음질 선택 & 편의 안내 -->
-        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-ghibli-warmBorder/60">
-          <div class="flex items-center gap-2.5">
-            <span class="text-xs font-bold text-ghibli-subText flex items-center gap-1">
-              <i class="fa-solid fa-sliders text-ghibli-forest"></i> 변환 음질:
+        <!-- 옵션: 음질 선택 (모바일 3분할 꽉 찬 버튼) -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-ghibli-warmBorder/60">
+          <div class="w-full sm:w-auto flex items-center gap-2">
+            <span class="text-xs font-bold text-ghibli-subText shrink-0 flex items-center gap-1">
+              <i class="fa-solid fa-sliders text-ghibli-forest"></i> 음질:
             </span>
-            <div class="inline-flex rounded-xl bg-ghibli-paper p-1 border border-ghibli-warmBorder text-xs font-medium">
-              <label class="cursor-pointer px-3 py-1 rounded-lg transition-all" id="lbl_320">
+            <div class="grid grid-cols-3 w-full sm:w-auto rounded-xl bg-ghibli-paper p-1 border border-ghibli-warmBorder text-xs font-medium text-center">
+              <label class="cursor-pointer py-1.5 px-2 rounded-lg transition-all" id="lbl_320">
                 <input type="radio" name="bitrate" value="320" checked class="hidden" onchange="updateBitrateUI()">
-                🎵 320kbps (최고음질)
+                320k (최고)
               </label>
-              <label class="cursor-pointer px-3 py-1 rounded-lg transition-all" id="lbl_256">
+              <label class="cursor-pointer py-1.5 px-2 rounded-lg transition-all" id="lbl_256">
                 <input type="radio" name="bitrate" value="256" class="hidden" onchange="updateBitrateUI()">
-                256kbps
+                256k
               </label>
-              <label class="cursor-pointer px-3 py-1 rounded-lg transition-all" id="lbl_192">
+              <label class="cursor-pointer py-1.5 px-2 rounded-lg transition-all" id="lbl_192">
                 <input type="radio" name="bitrate" value="192" class="hidden" onchange="updateBitrateUI()">
-                192kbps (표준)
+                192k (표준)
               </label>
             </div>
           </div>
 
-          <!-- 힌트 태그 -->
-          <div class="flex items-center gap-2 text-xs text-ghibli-subText">
-            <span class="bg-[#faf4e6] px-2.5 py-1 rounded-lg border border-[#e7ded0]">
-              💡 320kbps는 MP3 규격 중 최상급 음질로, 원음의 풍부한 울림을 보존합니다.
+          <div class="text-[11px] text-ghibli-subText">
+            <span class="inline-flex items-center gap-1 bg-[#faf4e6] px-2 py-0.5 rounded-lg border border-[#e7ded0]">
+              💡 320kbps는 원음 손실이 없는 스마트폰 최적 음질입니다.
             </span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 로딩 스피너 (분석 중 표시) -->
-    <div id="loadingBox" class="hidden ghibli-card p-10 text-center">
-      <div class="inline-block relative w-16 h-16 mb-4">
-        <div class="w-16 h-16 rounded-full border-4 border-ghibli-matcha border-t-ghibli-forest animate-spin"></div>
-        <div class="absolute inset-0 flex items-center justify-center text-ghibli-forest text-lg">
+    <!-- 로딩 스피너 (분석 중) -->
+    <div id="loadingBox" class="hidden ghibli-card p-8 sm:p-10 text-center">
+      <div class="inline-block relative w-12 h-12 sm:w-16 sm:h-16 mb-3">
+        <div class="w-full h-full rounded-full border-4 border-ghibli-matcha border-t-ghibli-forest animate-spin"></div>
+        <div class="absolute inset-0 flex items-center justify-center text-ghibli-forest text-base sm:text-lg">
           <i class="fa-solid fa-music"></i>
         </div>
       </div>
-      <h3 class="text-lg font-bold text-ghibli-earth mb-1">유튜브 음원 정보를 분석하고 있습니다</h3>
-      <p class="text-xs sm:text-sm text-ghibli-subText">플레이리스트 트랙 목록과 메타데이터를 정밀하게 불러오는 중입니다...</p>
+      <h3 class="text-base sm:text-lg font-bold text-ghibli-earth mb-1">유튜브 음원 정보를 분석하고 있습니다</h3>
+      <p class="text-xs text-ghibli-subText">수록곡 목록과 타임스탬프 챕터를 감지하는 중입니다...</p>
     </div>
 
-    <!-- 2. 분석 결과 및 일괄 제어 바 (분석 완료 시 노출) -->
-    <section id="resultsSection" class="hidden space-y-4">
+    <!-- 2. 분석 결과 및 일괄 제어 바 -->
+    <section id="resultsSection" class="hidden space-y-3 sm:space-y-4">
       
-      <!-- 플레이리스트 / 영상 헤더 배너 -->
-      <div class="ghibli-card p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div class="flex items-center gap-2 mb-1.5">
-            <span id="badgeType" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#eaf3ec] text-[#2d5a43] border border-[#cce2d3]">
+      <!-- 다중 수록곡(챕터) 감지 알림 배너 -->
+      <div id="chapterAlertBanner" class="hidden ghibli-card p-3.5 sm:p-4 bg-gradient-to-r from-[#fef7ec] to-[#eaf3ec] border-2 border-[#d97736]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-ghibli-sunlight text-white flex items-center justify-center text-sm shrink-0 shadow-sm">
+            <i class="fa-solid fa-scissors"></i>
+          </div>
+          <div>
+            <h4 class="text-xs sm:text-sm font-bold text-ghibli-earth flex items-center gap-1.5">
+              <span>하나의 영상 안에</span>
+              <span id="chapterCountText" class="text-ghibli-sunlight font-black">N개 수록곡</span>이 감지되었습니다!
+            </h4>
+            <p class="text-[11px] text-ghibli-subText">
+              1시간 모음집/앨범 영상을 각 곡별로 깔끔하게 쪼개어 개별 MP3로 다운로드할 수 있습니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button 
+            id="btnToggleSplitView" 
+            onclick="toggleChapterView()" 
+            class="btn-sunlight flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow"
+          >
+            <i class="fa-solid fa-layer-group"></i>
+            <span id="btnSplitText">곡별로 분리해서 추출</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 메인 결과 헤더 배너 -->
+      <div class="ghibli-card p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
+        <div class="min-w-0 w-full md:w-auto">
+          <div class="flex items-center gap-2 mb-1">
+            <span id="badgeType" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#eaf3ec] text-[#2d5a43] border border-[#cce2d3]">
               재생목록
             </span>
             <span id="trackCountBadge" class="text-xs font-medium text-ghibli-subText">
               총 0곡
             </span>
           </div>
-          <h2 id="resultTitle" class="text-xl sm:text-2xl font-bold text-ghibli-earth line-clamp-1">
+          <h2 id="resultTitle" class="text-base sm:text-xl font-bold text-ghibli-earth truncate">
             재생목록 제목
           </h2>
-          <p id="resultUploader" class="text-xs sm:text-sm text-ghibli-subText mt-0.5">
+          <p id="resultUploader" class="text-xs text-ghibli-subText mt-0.5 truncate">
             업로더 채널명
           </p>
         </div>
 
-        <!-- 일괄 제어 버튼들 -->
-        <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+        <!-- 일괄 제어 버튼들 (스마트폰 최적 그리드/플렉스) -->
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-ghibli-warmBorder/60">
           <button 
             onclick="toggleSelectAll()" 
-            class="btn-outline px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5"
+            class="btn-outline px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
           >
             <i class="fa-regular fa-square-check"></i>
             <span id="selectAllBtnText">전체 선택</span>
@@ -340,17 +369,17 @@
           <button 
             id="btnBatchConvert" 
             onclick="convertSelectedTracks()" 
-            class="btn-forest px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md"
+            class="btn-forest px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow"
           >
             <i class="fa-solid fa-bolt"></i>
-            <span>선택 항목 일괄 변환</span>
+            <span>선택 일괄 변환</span>
           </button>
 
           <button 
             id="btnZipDownload" 
             onclick="downloadAllAsZip()" 
-            class="btn-sunlight px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md opacity-80"
-            title="변환이 완료된 곡들을 하나의 ZIP 압축 파일로 다운로드합니다"
+            class="btn-sunlight col-span-2 sm:col-span-1 px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow"
+            title="변환된 모든 곡을 하나의 ZIP 파일로 다운로드합니다"
           >
             <i class="fa-solid fa-file-zipper"></i>
             <span>전체 ZIP 압축 다운로드</span>
@@ -359,69 +388,73 @@
       </div>
 
       <!-- 트랙 목록 컨테이너 -->
-      <div id="trackList" class="space-y-3">
-        <!-- JS로 동적 생성되는 트랙 카드들 -->
+      <div id="trackList" class="space-y-2.5 sm:space-y-3">
+        <!-- JS 동적 생성 트랙 카드 -->
       </div>
     </section>
 
-    <!-- 안내 가이드 카드 -->
-    <section class="ghibli-card p-5 sm:p-6 bg-gradient-to-br from-[#ffffff] to-[#faf5ea]">
-      <div class="flex items-center gap-2 mb-3">
-        <i class="fa-solid fa-circle-question text-ghibli-forest text-lg"></i>
-        <h3 class="text-base font-bold text-ghibli-earth">기나미 MP3 사용 안내</h3>
+    <!-- 모바일 맞춤 사용 팁 카드 -->
+    <section class="ghibli-card p-4 sm:p-5 bg-gradient-to-br from-[#ffffff] to-[#faf5ea]">
+      <div class="flex items-center gap-2 mb-2.5">
+        <i class="fa-solid fa-lightbulb text-ghibli-sunlight text-base"></i>
+        <h3 class="text-sm sm:text-base font-bold text-ghibli-earth">스마트폰 사용 꿀팁</h3>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm text-ghibli-subText">
-        <div class="p-3.5 rounded-xl bg-ghibli-cream border border-ghibli-warmBorder/70">
-          <div class="font-bold text-ghibli-forest mb-1">
-            <i class="fa-solid fa-list-ol mr-1"></i> 플레이리스트 한 번에 받기
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-xs text-ghibli-subText">
+        <div class="p-3 rounded-xl bg-ghibli-cream border border-ghibli-warmBorder/70">
+          <div class="font-bold text-ghibli-forest mb-0.5">
+            <i class="fa-solid fa-scissors mr-1"></i> 여러 곡 믹스 자동 분리
           </div>
-          유튜브에서 재생목록 주소를 복사해 넣으면 수십 곡의 리스트가 한 번에 펼쳐지며, [선택 항목 일괄 변환]을 누르면 순차적으로 고음질 MP3로 완성됩니다.
+          1시간 연속 듣기 영상에 타임스탬프(00:00)가 있으면 기나미 추출기가 알아서 각 곡별로 예쁘게 잘라서 개별 MP3로 만들어줍니다!
         </div>
-        <div class="p-3.5 rounded-xl bg-ghibli-cream border border-ghibli-warmBorder/70">
-          <div class="font-bold text-ghibli-forest mb-1">
-            <i class="fa-solid fa-image mr-1"></i> 앨범아트 & ID3 태그 자동 삽입
+        <div class="p-3 rounded-xl bg-ghibli-cream border border-ghibli-warmBorder/70">
+          <div class="font-bold text-ghibli-forest mb-0.5">
+            <i class="fa-solid fa-file-zipper mr-1"></i> ZIP 한 번에 받기
           </div>
-          변환된 MP3 파일 안에는 곡 제목, 가수 이름, 고화질 앨범 표지가 자동으로 내장되므로 차량 오디오나 스마트폰에 넣어도 예쁘게 표시됩니다.
+          플레이리스트나 수록곡들을 [전체 ZIP 압축 다운로드]로 받으시면 스마트폰 파일 앱(내 파일)에서 한 번에 풀어서 감상할 수 있습니다.
         </div>
-        <div class="p-3.5 rounded-xl bg-ghibli-cream border border-ghibli-warmBorder/70">
-          <div class="font-bold text-ghibli-forest mb-1">
-            <i class="fa-solid fa-box-archive mr-1"></i> 간편한 ZIP 압축 다운로드
+        <div class="p-3 rounded-xl bg-ghibli-cream border border-ghibli-warmBorder/70">
+          <div class="font-bold text-ghibli-forest mb-0.5">
+            <i class="fa-solid fa-image mr-1"></i> 앨범 커버 자동 저장
           </div>
-          여러 곡을 일일이 클릭해서 다운로드할 필요 없이 [전체 ZIP 압축 다운로드] 버튼 하나로 한 번에 압축해서 받아가실 수 있습니다.
+          곡마다 앨범 표지와 곡명 태그가 파일 속에 심어져 있으므로 차량 오디오나 스마트폰 뮤직 플레이어에서 표지가 자동으로 뜹니다.
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- 하단 고정 오디오 플레이어 (미리듣기용) -->
-  <div id="stickyAudioPlayer" class="fixed bottom-3 inset-x-3 sm:inset-x-6 max-w-4xl mx-auto hidden z-50">
-    <div class="ghibli-card p-3 sm:p-4 border-2 border-ghibli-leaf shadow-2xl flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-11 h-11 rounded-xl overflow-hidden bg-gray-200 shrink-0">
+  <!-- 하단 고정 오디오 플레이어 (스마트폰 최적화) -->
+  <div id="stickyAudioPlayer" class="fixed bottom-2 inset-x-2 sm:inset-x-6 max-w-2xl mx-auto hidden z-50 pb-safe">
+    <div class="ghibli-card p-2.5 sm:p-3 border-2 border-ghibli-leaf shadow-2xl flex items-center justify-between gap-2.5 bg-white/95">
+      <div class="flex items-center gap-2.5 min-w-0 flex-1">
+        <div class="w-10 h-10 rounded-xl overflow-hidden bg-gray-200 shrink-0 border border-ghibli-warmBorder">
           <img id="playerThumb" src="" alt="" class="w-full h-full object-cover">
         </div>
-        <div class="min-w-0">
-          <p id="playerTitle" class="text-xs sm:text-sm font-bold text-ghibli-earth truncate">재생 중인 곡 제목</p>
-          <span class="text-[11px] text-ghibli-forest font-medium">🎧 브라우저 고음질 미리듣기</span>
+        <div class="min-w-0 flex-1">
+          <p id="playerTitle" class="text-xs font-bold text-ghibli-earth truncate">재생 중인 곡</p>
+          <span class="text-[10px] text-ghibli-forest font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-headphones"></i> 고음질 미리듣기
+          </span>
         </div>
       </div>
 
-      <div class="flex items-center gap-3 shrink-0">
-        <audio id="audioElement" controls class="h-9 w-48 sm:w-64 accent-emerald-700"></audio>
-        <button onclick="closeAudioPlayer()" class="text-gray-400 hover:text-gray-700 p-1.5" title="닫기">
-          <i class="fa-solid fa-xmark text-lg"></i>
+      <div class="flex items-center gap-2 shrink-0">
+        <audio id="audioElement" controls class="h-8 w-36 sm:w-56 accent-emerald-700"></audio>
+        <button onclick="closeAudioPlayer()" class="text-gray-400 hover:text-gray-700 p-1" title="닫기">
+          <i class="fa-solid fa-xmark text-base"></i>
         </button>
       </div>
     </div>
   </div>
 
   <!-- 토스트 알림 컨테이너 -->
-  <div id="toastContainer" class="fixed top-5 right-5 space-y-2 z-50"></div>
+  <div id="toastContainer" class="fixed top-3 right-3 left-3 sm:left-auto sm:right-5 space-y-2 z-50 pointer-events-none"></div>
 
-  <!-- 프론트엔드 로직 스크립트 -->
+  <!-- 프론트엔드 인터랙션 스크립트 -->
   <script>
+    let analyzeData = null;
     let currentTracks = [];
+    let isShowingChapters = false;
     let currentPlaylistTitle = "YouTube_Playlist";
     let pollInterval = null;
 
@@ -430,7 +463,10 @@
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
-        document.getElementById('systemVersion').textContent = `yt-dlp v${data.yt_dlp_version} (${data.cached_mp3_count}곡 저장 중)`;
+        const badge = document.getElementById('systemVersion');
+        if (badge) {
+          badge.textContent = `yt-dlp v${data.yt_dlp_version} (${data.cached_mp3_count}곡 저장 중)`;
+        }
       } catch (e) {
         console.error(e);
       }
@@ -443,9 +479,9 @@
       ['320', '256', '192'].forEach(rate => {
         const lbl = document.getElementById(`lbl_${rate}`);
         if (rate === selected) {
-          lbl.className = 'cursor-pointer px-3 py-1 rounded-lg transition-all bg-[#2d5a43] text-white font-bold shadow-sm';
+          lbl.className = 'cursor-pointer py-1.5 px-2 rounded-lg transition-all bg-[#2d5a43] text-white font-bold shadow-sm';
         } else {
-          lbl.className = 'cursor-pointer px-3 py-1 rounded-lg transition-all text-ghibli-subText hover:text-ghibli-forest';
+          lbl.className = 'cursor-pointer py-1.5 px-2 rounded-lg transition-all text-ghibli-subText hover:text-ghibli-forest';
         }
       });
     }
@@ -464,8 +500,8 @@
         info: 'fa-circle-info'
       };
 
-      toast.className = `px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2.5 text-xs sm:text-sm font-medium transition-all transform duration-300 translate-y-2 opacity-0 ${bgColors[type] || bgColors.info}`;
-      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+      toast.className = `pointer-events-auto px-3.5 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 text-xs font-medium transition-all transform duration-300 translate-y-2 opacity-0 ${bgColors[type] || bgColors.info}`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> <span class="truncate">${message}</span>`;
       
       const container = document.getElementById('toastContainer');
       container.appendChild(toast);
@@ -485,22 +521,22 @@
         const text = await navigator.clipboard.readText();
         if (text) {
           document.getElementById('youtubeUrl').value = text;
-          showToast('클립보드 주소를 붙여넣었습니다.', 'info');
+          showToast('주소를 붙여넣었습니다.', 'info');
         }
       } catch (err) {
-        showToast('클립보드 읽기 권한을 허용해주세요.', 'error');
+        showToast('붙여넣기 권한을 허용해주세요.', 'error');
       }
     }
 
     async function cleanCache() {
-      if (!confirm('임시 저장된 변환 MP3 및 ZIP 파일들을 모두 정리하시겠습니까?')) return;
+      if (!confirm('임시 저장된 변환 MP3 및 ZIP 파일들을 정리하시겠습니까?')) return;
       try {
         const res = await fetch('/api/clean-cache', { method: 'DELETE' });
         const data = await res.json();
-        showToast(`임시 파일 ${data.deleted_count}개를 깨끗하게 정리했습니다.`, 'success');
+        showToast(`임시 파일 ${data.deleted_count}개를 정리했습니다.`, 'success');
         checkStatus();
       } catch (e) {
-        showToast('파일 정리 중 오류가 발생했습니다.', 'error');
+        showToast('파일 정리 중 오류 발생', 'error');
       }
     }
 
@@ -508,7 +544,7 @@
     async function analyzeUrl() {
       const url = document.getElementById('youtubeUrl').value.trim();
       if (!url) {
-        showToast('유튜브 동영상 또는 플레이리스트 주소를 입력해주세요.', 'error');
+        showToast('유튜브 주소를 입력해주세요.', 'error');
         return;
       }
 
@@ -533,13 +569,22 @@
           throw new Error(data.detail || '영상 정보를 불러오지 못했습니다.');
         }
 
-        currentTracks = data.tracks || [];
-        currentPlaylistTitle = data.title || "YouTube Playlist";
+        analyzeData = data;
+        currentPlaylistTitle = data.title || "YouTube_Playlist";
+
+        // 챕터 감지 여부에 따라 기본 트랙 목록 결정
+        if (data.has_chapters && data.chapters.length >= 2) {
+          isShowingChapters = true;
+          currentTracks = data.chapters;
+          setupChapterBanner(true, data.chapters.length);
+        } else {
+          isShowingChapters = false;
+          currentTracks = data.tracks || [];
+          setupChapterBanner(false, 0);
+        }
 
         renderResults(data);
-        showToast(`총 ${currentTracks.length}개의 음원 트랙을 감지했습니다.`, 'success');
-
-        // 상태 폴링 시작
+        showToast(`총 ${currentTracks.length}개의 트랙을 불러왔습니다.`, 'success');
         startProgressPolling();
 
       } catch (err) {
@@ -551,6 +596,36 @@
       }
     }
 
+    function setupChapterBanner(hasChapters, count) {
+      const banner = document.getElementById('chapterAlertBanner');
+      const countText = document.getElementById('chapterCountText');
+      const btnSplitText = document.getElementById('btnSplitText');
+
+      if (hasChapters) {
+        countText.textContent = `${count}개 수록곡`;
+        btnSplitText.textContent = isShowingChapters ? '🎬 통째로 1곡으로 보기' : '🎵 곡별로 분리해서 추출';
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    function toggleChapterView() {
+      if (!analyzeData || !analyzeData.has_chapters) return;
+
+      isShowingChapters = !isShowingChapters;
+      if (isShowingChapters) {
+        currentTracks = analyzeData.chapters;
+        showToast(`${analyzeData.chapters.length}개 수록곡으로 분리되었습니다.`, 'info');
+      } else {
+        currentTracks = analyzeData.tracks;
+        showToast('통째로 1곡 추출 모드로 전환되었습니다.', 'info');
+      }
+
+      setupChapterBanner(true, analyzeData.chapters.length);
+      renderResults(analyzeData);
+    }
+
     // 결과 렌더링
     function renderResults(data) {
       const section = document.getElementById('resultsSection');
@@ -560,14 +635,20 @@
       const resultUploader = document.getElementById('resultUploader');
       const trackList = document.getElementById('trackList');
 
-      badgeType.textContent = data.is_playlist ? '📋 재생목록' : '🎬 단일 영상';
-      trackCountBadge.textContent = `총 ${data.total_count}곡`;
+      if (data.is_playlist) {
+        badgeType.textContent = '📋 재생목록';
+      } else if (isShowingChapters) {
+        badgeType.textContent = '✂️ 믹스 수록곡 분리';
+      } else {
+        badgeType.textContent = '🎬 단일 영상';
+      }
+
+      trackCountBadge.textContent = `총 ${currentTracks.length}곡`;
       resultTitle.textContent = data.title;
       resultUploader.textContent = data.uploader ? `채널 / 아티스트: ${data.uploader}` : '';
 
       trackList.innerHTML = '';
-
-      data.tracks.forEach((track, index) => {
+      currentTracks.forEach((track, index) => {
         const card = createTrackCard(track, index + 1);
         trackList.appendChild(card);
       });
@@ -575,58 +656,55 @@
       section.classList.remove('hidden');
     }
 
-    // 개별 트랙 카드 DOM 생성
+    // 트랙 카드 DOM 생성 (스마트폰 완벽 반응형)
     function createTrackCard(track, num) {
       const div = document.createElement('div');
       div.id = `track-card-${track.id}`;
-      div.className = "ghibli-card p-3 sm:p-4 transition-all hover:border-[#cce2d3] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3";
-
-      const isCompleted = track.is_downloaded;
+      div.className = "ghibli-card p-3 sm:p-4 transition-all hover:border-[#cce2d3] flex flex-col gap-2.5";
 
       div.innerHTML = `
-        <div class="flex items-center gap-3 w-full sm:w-auto min-w-0">
-          <input type="checkbox" id="check-${track.id}" data-id="${track.id}" class="custom-checkbox track-checkbox" checked>
+        <!-- 상단: 체크박스 + 번호 + 썸네일 + 타이틀 -->
+        <div class="flex items-center gap-2.5 min-w-0">
+          <input type="checkbox" id="check-${track.id}" data-id="${track.id}" class="custom-checkbox track-checkbox shrink-0" checked>
           
-          <span class="text-xs font-bold text-ghibli-forest w-5 text-center">${num}</span>
+          <span class="text-xs font-bold text-ghibli-forest w-4 text-center shrink-0">${num}</span>
 
           <!-- 썸네일 -->
-          <div class="relative w-16 h-12 rounded-xl overflow-hidden bg-gray-200 shrink-0 group border border-ghibli-warmBorder">
+          <div class="relative w-14 h-10 sm:w-16 sm:h-12 rounded-lg overflow-hidden bg-gray-200 shrink-0 border border-ghibli-warmBorder">
             <img src="${track.thumbnail}" alt="" class="w-full h-full object-cover">
-            <a href="${track.url}" target="_blank" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition-opacity" title="유튜브 원본 보기">
-              <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            </a>
           </div>
 
-          <!-- 정보 및 진행상황 -->
+          <!-- 정보 -->
           <div class="min-w-0 flex-1">
             <h4 class="text-xs sm:text-sm font-bold text-ghibli-earth truncate" title="${track.title}">
               ${track.title}
             </h4>
-            <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-ghibli-subText">
+            <div class="flex items-center gap-1.5 mt-0.5 text-[11px] text-ghibli-subText">
               <span><i class="fa-regular fa-clock"></i> ${track.duration_str}</span>
-              <span>•</span>
-              <span class="truncate max-w-[120px] sm:max-w-[180px]">${track.uploader}</span>
-            </div>
-
-            <!-- 프로그레스바 (초기엔 숨김) -->
-            <div id="progress-box-${track.id}" class="hidden mt-2 w-full max-w-md">
-              <div class="flex items-center justify-between text-[11px] font-semibold text-ghibli-forest mb-1">
-                <span id="progress-status-${track.id}">다운로드 중...</span>
-                <span id="progress-percent-${track.id}">0%</span>
-              </div>
-              <div class="w-full bg-[#e7ded0] h-2 rounded-full overflow-hidden">
-                <div id="progress-bar-${track.id}" class="h-full progress-shimmer transition-all duration-300 rounded-full" style="width: 0%"></div>
-              </div>
-              <div class="flex items-center justify-between text-[10px] text-gray-500 mt-0.5">
-                <span id="progress-speed-${track.id}">속도: --</span>
-                <span id="progress-eta-${track.id}">남은 시간: --</span>
-              </div>
+              ${track.start_time !== undefined ? `<span class="text-ghibli-sunlight font-semibold">[${formatDuration(track.start_time)} ~ ${formatDuration(track.end_time)}]</span>` : ''}
+              <span class="hidden sm:inline">•</span>
+              <span class="hidden sm:inline truncate max-w-[140px]">${track.uploader}</span>
             </div>
           </div>
         </div>
 
-        <!-- 액션 버튼 영역 -->
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-ghibli-warmBorder/60" id="action-box-${track.id}">
+        <!-- 중간: 프로그레스바 -->
+        <div id="progress-box-${track.id}" class="hidden w-full bg-ghibli-paper/80 p-2 rounded-xl border border-ghibli-warmBorder/70">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-ghibli-forest mb-1">
+            <span id="progress-status-${track.id}">다운로드 중...</span>
+            <span id="progress-percent-${track.id}">0%</span>
+          </div>
+          <div class="w-full bg-[#ded5c4] h-2 rounded-full overflow-hidden">
+            <div id="progress-bar-${track.id}" class="h-full progress-shimmer transition-all duration-300 rounded-full" style="width: 0%"></div>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-gray-500 mt-1">
+            <span id="progress-speed-${track.id}">속도: --</span>
+            <span id="progress-eta-${track.id}">남은 시간: --</span>
+          </div>
+        </div>
+
+        <!-- 하단: 액션 버튼 (스마트폰에서 터치하기 편하게 꽉 차는 버튼) -->
+        <div class="flex items-center gap-2 justify-end w-full pt-1.5 border-t border-ghibli-warmBorder/50" id="action-box-${track.id}">
           ${renderTrackActionButtons(track)}
         </div>
       `;
@@ -637,27 +715,34 @@
     function renderTrackActionButtons(track) {
       if (track.is_downloaded && track.filename) {
         return `
-          <button onclick="playAudio('${track.filename}', '${escapeHtml(track.title)}', '${track.thumbnail}')" class="btn-outline px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 text-ghibli-forest">
+          <button onclick="playAudio('${track.filename}', '${escapeHtml(track.title)}', '${track.thumbnail}')" class="btn-outline flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 text-ghibli-forest">
             <i class="fa-solid fa-play"></i> 미리듣기
           </button>
-          <a href="/api/download/${encodeURIComponent(track.filename)}" download class="btn-forest px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+          <a href="/api/download/${encodeURIComponent(track.filename)}" download class="btn-forest flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
             <i class="fa-solid fa-arrow-down-to-bracket"></i> MP3 다운로드
           </a>
         `;
       } else {
         return `
-          <button id="btn-convert-${track.id}" onclick="convertSingleTrack('${track.id}')" class="btn-forest px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+          <button id="btn-convert-${track.id}" onclick="convertSingleTrack('${track.id}')" class="btn-forest w-full sm:w-auto px-4 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
             <i class="fa-solid fa-arrows-rotate"></i> MP3 변환
           </button>
         `;
       }
     }
 
+    function formatDuration(sec) {
+      if (!sec) return "00:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
     function escapeHtml(str) {
       return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
-    // 단일 트랙 변환
+    // 단일 트랙/챕터 변환
     async function convertSingleTrack(trackId) {
       const track = currentTracks.find(t => t.id === trackId);
       if (!track) return;
@@ -673,17 +758,23 @@
       }
 
       try {
+        const payload = {
+          id: track.id,
+          url: track.url,
+          title: track.title,
+          bitrate: bitrate,
+          parent_id: track.parent_id || null,
+          start_time: track.start_time !== undefined ? track.start_time : null,
+          end_time: track.end_time !== undefined ? track.end_time : null,
+          chapter_index: track.chapter_index || null,
+          uploader: track.uploader || null
+        };
+
         const res = await fetch('/api/convert', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: track.id,
-            url: track.url,
-            title: track.title,
-            bitrate: bitrate
-          })
+          body: JSON.stringify(payload)
         });
-        const data = await res.json();
         showToast(`'${track.title}' 변환을 시작했습니다.`, 'info');
       } catch (err) {
         showToast('변환 요청 중 오류가 발생했습니다.', 'error');
@@ -701,7 +792,16 @@
       const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.id);
       const selectedTracks = currentTracks
         .filter(t => selectedIds.includes(t.id))
-        .map(t => ({ id: t.id, url: t.url, title: t.title }));
+        .map(t => ({
+          id: t.id,
+          url: t.url,
+          title: t.title,
+          parent_id: t.parent_id || null,
+          start_time: t.start_time !== undefined ? t.start_time : null,
+          end_time: t.end_time !== undefined ? t.end_time : null,
+          chapter_index: t.chapter_index || null,
+          uploader: t.uploader || null
+        }));
 
       const bitrate = document.querySelector('input[name="bitrate"]:checked').value;
 
@@ -771,20 +871,19 @@
         progressBox.classList.remove('hidden');
         progressBar.style.width = `${task.percent}%`;
         progressPercent.textContent = `${task.percent}%`;
-        progressStatus.textContent = '고음질 스트림 다운로드 중...';
+        progressStatus.textContent = task.speed.includes('준비') ? task.speed : '음원 다운로드 중...';
         progressSpeed.textContent = `속도: ${task.speed}`;
         progressEta.textContent = `남은 시간: ${task.eta}`;
       } else if (task.status === 'converting') {
         progressBox.classList.remove('hidden');
         progressBar.style.width = `96%`;
         progressPercent.textContent = `96%`;
-        progressStatus.textContent = 'MP3 인코딩 & 태그 삽입 중...';
-        progressSpeed.textContent = 'FFmpeg 변환 처리';
+        progressStatus.textContent = task.speed.includes('분리') ? task.speed : 'MP3 인코딩 & 태그 삽입 중...';
+        progressSpeed.textContent = task.eta || 'FFmpeg 처리';
         progressEta.textContent = '마무리 단계';
       } else if (task.status === 'completed') {
         progressBox.classList.add('hidden');
         
-        // 트랙 상태 업데이트
         const track = currentTracks.find(t => t.id === trackId);
         if (track) {
           track.is_downloaded = true;
@@ -793,13 +892,13 @@
 
         if (actionBox) {
           actionBox.innerHTML = `
-            <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+            <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
               <i class="fa-solid fa-circle-check"></i> ${task.filesize || '완료'}
             </span>
-            <button onclick="playAudio('${task.filename}', '${escapeHtml(task.title)}', '')" class="btn-outline px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 text-ghibli-forest">
+            <button onclick="playAudio('${task.filename}', '${escapeHtml(track ? track.title : task.filename)}', '')" class="btn-outline flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 text-ghibli-forest">
               <i class="fa-solid fa-play"></i> 미리듣기
             </button>
-            <a href="/api/download/${encodeURIComponent(task.filename)}" download class="btn-forest px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <a href="/api/download/${encodeURIComponent(task.filename)}" download class="btn-forest flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
               <i class="fa-solid fa-arrow-down-to-bracket"></i> MP3 다운로드
             </a>
           `;
@@ -821,14 +920,14 @@
 
       const btn = document.getElementById('btnZipDownload');
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>압축 파일 생성 중...</span>`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>압축 중...</span>`;
 
       try {
         const res = await fetch('/api/zip', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: currentPlaylistTitle,
+            title: isShowingChapters ? `${currentPlaylistTitle}_수록곡분리` : currentPlaylistTitle,
             track_ids: completedTracks.map(t => t.id)
           })
         });
@@ -838,9 +937,8 @@
           throw new Error(data.detail || '압축 파일 생성 실패');
         }
 
-        showToast(`${data.file_count}곡을 ZIP(${data.filesize})으로 묶었습니다!`, 'success');
+        showToast(`${data.file_count}곡을 ZIP(${data.filesize})으로 압축 완료!`, 'success');
 
-        // 다운로드 트리거
         const a = document.createElement('a');
         a.href = data.download_url;
         a.download = data.zip_filename;
@@ -864,11 +962,11 @@
       const pThumb = document.getElementById('playerThumb');
 
       pTitle.textContent = title || filename;
-      pThumb.src = thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&auto=format&fit=crop&q=80';
+      pThumb.src = thumbnail || '/static/profile.jpg';
       audio.src = `/api/stream/${encodeURIComponent(filename)}`;
 
       player.classList.remove('hidden');
-      audio.play().catch(e => console.log('자동 재생 제한:', e));
+      audio.play().catch(e => console.log('재생 안내:', e));
     }
 
     function closeAudioPlayer() {
