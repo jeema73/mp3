@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+downloads/*
+!downloads/.gitkeep
+*.mp3
+*.zip
+*.m4a
+*.webm
+.vscode/
+.idea/
+venv/
+*.log
