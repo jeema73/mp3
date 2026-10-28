@@ -558,6 +558,28 @@
     }
     checkStatus();
 
+    // 안전한 JSON 통신 래퍼 (HTML 에러 페이지나 524 타임아웃 발생 시 Unexpected token 오류 방지)
+    async function safeFetchJson(url, options = {}) {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        if (res.status === 524 || res.status === 504) {
+          throw new Error("처리 시간이 초과되었습니다 (대용량 파일). [30곡 균등 분할]을 누르시면 즉시 분리됩니다!");
+        }
+        if (res.status === 502 || res.status === 503) {
+          throw new Error("서버와의 연결이 일시적으로 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
+        }
+        throw new Error("서버 응답 오류 (" + res.status + ")");
+      }
+      if (!res.ok) {
+        throw new Error((data && data.detail) || "요청 처리 중 오류가 발생했습니다.");
+      }
+      return data;
+    }
+
     // Cloudflare 스마트폰 터널 주소 확인 및 모달 제어
     let currentTunnelUrl = "";
 
@@ -666,12 +688,11 @@
     async function cleanCache() {
       if (!confirm('임시 저장된 변환 MP3 및 ZIP 파일들을 정리하시겠습니까?')) return;
       try {
-        const res = await fetch('/api/clean-cache', { method: 'DELETE' });
-        const data = await res.json();
+        const data = await safeFetchJson('/api/clean-cache', { method: 'DELETE' });
         showToast(`임시 파일 ${data.deleted_count}개를 정리했습니다.`, 'success');
         checkStatus();
       } catch (e) {
-        showToast('파일 정리 중 오류 발생', 'error');
+        showToast(e.message || '파일 정리 중 오류 발생', 'error');
       }
     }
 
@@ -693,16 +714,11 @@
       resultsSection.classList.add('hidden');
 
       try {
-        const res = await fetch('/api/analyze', {
+        const data = await safeFetchJson('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: url })
         });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.detail || '영상 정보를 불러오지 못했습니다.');
-        }
 
         analyzeData = data;
         currentPlaylistTitle = data.title || "YouTube_Playlist";
@@ -763,7 +779,7 @@
       showToast('노래 사이의 무음(Silence) 구간을 정밀 분석 중입니다. 잠시만 기다려주세요...', 'info');
 
       try {
-        const res = await fetch('/api/split-silence', {
+        const data = await safeFetchJson('/api/split-silence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -775,8 +791,6 @@
             thumbnail: baseTrack.thumbnail
           })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || '무음 감지 실패');
         
         currentTracks = data.tracks;
         isShowingChapters = true;
@@ -802,7 +816,7 @@
       }
 
       try {
-        const res = await fetch('/api/split-equal', {
+        const data = await safeFetchJson('/api/split-equal', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -815,8 +829,6 @@
             count: count
           })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || '균등 분할 실패');
 
         currentTracks = data.tracks;
         isShowingChapters = true;
@@ -1003,14 +1015,14 @@
           uploader: track.uploader || null
         };
 
-        const res = await fetch('/api/convert', {
+        await safeFetchJson('/api/convert', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         showToast(`'${track.title}' 변환을 시작했습니다.`, 'info');
       } catch (err) {
-        showToast('변환 요청 중 오류가 발생했습니다.', 'error');
+        showToast(err.message || '변환 요청 중 오류가 발생했습니다.', 'error');
       }
     }
 
@@ -1049,15 +1061,14 @@
       });
 
       try {
-        const res = await fetch('/api/convert-batch', {
+        const data = await safeFetchJson('/api/convert-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tracks: selectedTracks, bitrate: bitrate })
         });
-        const data = await res.json();
         showToast(data.message || '일괄 변환 작업을 시작했습니다.', 'success');
       } catch (err) {
-        showToast('일괄 변환 시작 실패', 'error');
+        showToast(err.message || '일괄 변환 시작 실패', 'error');
       }
     }
 
@@ -1156,7 +1167,7 @@
       btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>압축 중...</span>`;
 
       try {
-        const res = await fetch('/api/zip', {
+        const data = await safeFetchJson('/api/zip', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1164,11 +1175,6 @@
             track_ids: completedTracks.map(t => t.id)
           })
         });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.detail || '압축 파일 생성 실패');
-        }
 
         showToast(`${data.file_count}곡을 ZIP(${data.filesize})으로 압축 완료!`, 'success');
 
@@ -1180,7 +1186,7 @@
         a.remove();
 
       } catch (err) {
-        showToast(err.message, 'error');
+        showToast(err.message || '압축 파일 생성 실패', 'error');
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> <span>전체 ZIP 압축 다운로드</span>`;

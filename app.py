@@ -172,6 +172,10 @@ async def startup_event():
     # 백그라운드에서 Cloudflare 터널 실행
     start_tunnel_background(port=8088)
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"detail": f"서버 내부 오류: {str(exc)}"})
+
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
