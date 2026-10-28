@@ -337,6 +337,51 @@
         </div>
       </div>
 
+      <!-- 시간표가 없는 장시간 연속 영상 스마트 분할 배너 -->
+      <div id="noChapterBanner" class="hidden ghibli-card p-3.5 sm:p-4 bg-gradient-to-r from-[#faf4e6] to-[#eaf3ec] border-2 border-ghibli-leaf/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-ghibli-forest text-white flex items-center justify-center text-sm shrink-0 shadow-sm">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div>
+            <h4 class="text-xs sm:text-sm font-bold text-ghibli-earth flex items-center gap-1.5">
+              <span>연속 음악 영상</span> 스마트 분할 지원
+            </h4>
+            <p class="text-[11px] text-ghibli-subText">
+              유튜버가 시간표를 적지 않았어도 <strong>무음 구간 감지</strong> 또는 <strong>30곡 균등 분할</strong>로 곡을 나눌 수 있습니다!
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button 
+            id="btnSilenceSplit" 
+            onclick="splitBySilence()" 
+            class="btn-forest flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow"
+            title="노래 사이의 무음(Silence)을 감지하여 분리"
+          >
+            <i class="fa-solid fa-headphones"></i>
+            <span>무음 감지 분할</span>
+          </button>
+          <button 
+            id="btnEqual30"
+            onclick="splitByEqual(30)" 
+            class="btn-sunlight flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow"
+            title="30곡으로 시간 균등 분할"
+          >
+            <i class="fa-solid fa-calculator"></i>
+            <span>30곡 균등 분할</span>
+          </button>
+          <button 
+            onclick="promptEqualSplit()" 
+            class="btn-outline px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1"
+            title="원하는 곡 수 직접 입력"
+          >
+            <span>곡수 지정</span>
+          </button>
+        </div>
+      </div>
+
       <!-- 메인 결과 헤더 배너 -->
       <div class="ghibli-card p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
         <div class="min-w-0 w-full md:w-auto">
@@ -690,14 +735,112 @@
       const banner = document.getElementById('chapterAlertBanner');
       const countText = document.getElementById('chapterCountText');
       const btnSplitText = document.getElementById('btnSplitText');
+      const noChapBanner = document.getElementById('noChapterBanner');
 
       if (hasChapters) {
         countText.textContent = `${count}개 수록곡`;
         btnSplitText.textContent = isShowingChapters ? '🎬 통째로 1곡으로 보기' : '🎵 곡별로 분리해서 추출';
         banner.classList.remove('hidden');
+        if (noChapBanner) noChapBanner.classList.add('hidden');
       } else {
         banner.classList.add('hidden');
+        if (analyzeData && !analyzeData.is_playlist && analyzeData.tracks && analyzeData.tracks[0] && analyzeData.tracks[0].duration >= 300) {
+          if (noChapBanner) noChapBanner.classList.remove('hidden');
+        } else {
+          if (noChapBanner) noChapBanner.classList.add('hidden');
+        }
       }
+    }
+
+    async function splitBySilence() {
+      if (!analyzeData || !analyzeData.tracks || !analyzeData.tracks[0]) return;
+      const baseTrack = analyzeData.tracks[0];
+      const btn = document.getElementById('btnSilenceSplit');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>무음 감지 중...</span>`;
+      }
+      showToast('노래 사이의 무음(Silence) 구간을 정밀 분석 중입니다. 잠시만 기다려주세요...', 'info');
+
+      try {
+        const res = await fetch('/api/split-silence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_id: baseTrack.id,
+            url: baseTrack.url,
+            title: baseTrack.title,
+            duration: baseTrack.duration,
+            uploader: baseTrack.uploader,
+            thumbnail: baseTrack.thumbnail
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '무음 감지 실패');
+        
+        currentTracks = data.tracks;
+        isShowingChapters = true;
+        renderResults(analyzeData);
+        showToast(`무음 분석으로 총 ${data.count}곡을 찾아내어 분리했습니다!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-headphones"></i> <span>무음 감지 분할</span>`;
+        }
+      }
+    }
+
+    async function splitByEqual(count) {
+      if (!analyzeData || !analyzeData.tracks || !analyzeData.tracks[0]) return;
+      const baseTrack = analyzeData.tracks[0];
+      const btn = document.getElementById('btnEqual30');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>분할 중...</span>`;
+      }
+
+      try {
+        const res = await fetch('/api/split-equal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_id: baseTrack.id,
+            url: baseTrack.url,
+            title: baseTrack.title,
+            duration: baseTrack.duration,
+            uploader: baseTrack.uploader,
+            thumbnail: baseTrack.thumbnail,
+            count: count
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '균등 분할 실패');
+
+        currentTracks = data.tracks;
+        isShowingChapters = true;
+        renderResults(analyzeData);
+        showToast(`총 ${data.count}곡으로 균등 분할 완료!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-calculator"></i> <span>${count}곡 균등 분할</span>`;
+        }
+      }
+    }
+
+    function promptEqualSplit() {
+      const input = prompt('몇 곡으로 균등하게 분할하시겠습니까? (예: 20, 25, 30)', '30');
+      if (!input) return;
+      const num = parseInt(input.trim());
+      if (isNaN(num) || num < 2 || num > 60) {
+        showToast('2~60 사이의 숫자를 입력해주세요.', 'error');
+        return;
+      }
+      splitByEqual(num);
     }
 
     function toggleChapterView() {

@@ -138,6 +138,34 @@ class ZipRequest(BaseModel):
     title: str
     track_ids: List[str]
 
+class SilenceSplitRequest(BaseModel):
+    video_id: str
+    url: str
+    title: str
+    duration: int
+    uploader: Optional[str] = "YouTube"
+    thumbnail: Optional[str] = ""
+    noise_db: Optional[int] = -30
+    min_silence_sec: Optional[float] = 1.2
+
+class EqualSplitRequest(BaseModel):
+    video_id: str
+    url: str
+    title: str
+    duration: int
+    uploader: Optional[str] = "YouTube"
+    thumbnail: Optional[str] = ""
+    count: int = 30
+
+class TextTimestampSplitRequest(BaseModel):
+    video_id: str
+    url: str
+    title: str
+    duration: int
+    uploader: Optional[str] = "YouTube"
+    thumbnail: Optional[str] = ""
+    text: str
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -353,9 +381,28 @@ def download_parent_audio(video_id: str, url: str, bitrate: str) -> Optional[Pat
         ydl.download([url])
 
     for f in DOWNLOAD_DIR.glob(f"*{video_id}*.mp3"):
-        if "_ch" not in f.name:
+        if "_ch" not in f.name and "_s" not in f.name and "_eq" not in f.name and "_t" not in f.name:
             return f
     return None
+
+
+def detect_silence_splits(audio_path: Path, min_silence_sec: float = 1.2, noise_db: int = -30) -> List[float]:
+    """FFmpeg silencedetect 필터를 사용하여 음악 간 무음 종료 지점(곡 전환 시점) 감지"""
+    cmd = [
+        "ffmpeg", "-i", str(audio_path),
+        "-af", f"silencedetect=noise={noise_db}dB:d={min_silence_sec}",
+        "-f", "null", "-"
+    ]
+    res = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True, errors="ignore")
+    points = []
+    for line in res.stderr.splitlines():
+        if "silence_end:" in line:
+            m = re.search(r'silence_end:\s*([0-9.]+)', line)
+            if m:
+                p = float(m.group(1))
+                if not points or (p - points[-1]) >= 45.0:
+                    points.append(p)
+    return points
 
 
 def download_and_convert_task(
@@ -607,6 +654,153 @@ async def get_progress(track_id: str):
 @app.get("/api/progress-all")
 async def get_all_progress():
     return tasks
+
+
+@app.post("/api/split-silence")
+async def split_by_silence(req: SilenceSplitRequest):
+    """무음 구간 자동 감지를 통한 트랙 분리"""
+    parent_mp3 = download_parent_audio(req.video_id, req.url, "320")
+    if not parent_mp3 or not parent_mp3.exists():
+        raise HTTPException(status_code=400, detail="음원을 다운로드하지 못했습니다.")
+    
+    noise_db = req.noise_db or -30
+    min_silence = req.min_silence_sec or 1.2
+    split_points = detect_silence_splits(parent_mp3, min_silence, noise_db)
+    
+    if len(split_points) < 3:
+        split_points = detect_silence_splits(parent_mp3, 1.0, -26)
+        
+    duration = req.duration or 3600
+    
+    tracks = []
+    all_points = [0.0] + split_points + [float(duration)]
+    all_points = sorted(list(set(all_points)))
+    
+    for i in range(len(all_points) - 1):
+        st = all_points[i]
+        et = all_points[i+1]
+        if (et - st) < 20:
+            continue
+        idx = len(tracks) + 1
+        ch_id = f"{req.video_id}_s{idx}"
+        ch_title = f"{req.title} - Track {idx:02d}"
+        ch_dur = int(et - st)
+        
+        existing_ch_file = None
+        for mp3_path in DOWNLOAD_DIR.glob(f"*{ch_id}*.mp3"):
+            existing_ch_file = mp3_path.name
+            break
+            
+        tracks.append({
+            "id": ch_id,
+            "parent_id": req.video_id,
+            "chapter_index": idx,
+            "title": ch_title,
+            "uploader": req.uploader,
+            "start_time": st,
+            "end_time": et,
+            "duration": ch_dur,
+            "duration_str": format_duration(ch_dur),
+            "thumbnail": req.thumbnail,
+            "url": req.url,
+            "is_downloaded": existing_ch_file is not None,
+            "filename": existing_ch_file
+        })
+        
+    return {
+        "success": True,
+        "count": len(tracks),
+        "tracks": tracks
+    }
+
+
+@app.post("/api/split-equal")
+async def split_by_equal(req: EqualSplitRequest):
+    """지정된 곡 수로 시간 균등 분할"""
+    count = max(2, min(req.count, 60))
+    duration = req.duration
+    if not duration or duration < count * 10:
+        raise HTTPException(status_code=400, detail="영상 길이가 분할하기에 너무 짧습니다.")
+        
+    interval = duration / count
+    tracks = []
+    
+    for i in range(count):
+        st = round(i * interval, 1)
+        et = round((i + 1) * interval, 1) if (i + 1) < count else float(duration)
+        idx = i + 1
+        ch_id = f"{req.video_id}_eq{idx}"
+        ch_title = f"{req.title} - Track {idx:02d}"
+        ch_dur = int(et - st)
+        
+        existing_ch_file = None
+        for mp3_path in DOWNLOAD_DIR.glob(f"*{ch_id}*.mp3"):
+            existing_ch_file = mp3_path.name
+            break
+
+        tracks.append({
+            "id": ch_id,
+            "parent_id": req.video_id,
+            "chapter_index": idx,
+            "title": ch_title,
+            "uploader": req.uploader,
+            "start_time": st,
+            "end_time": et,
+            "duration": ch_dur,
+            "duration_str": format_duration(ch_dur),
+            "thumbnail": req.thumbnail,
+            "url": req.url,
+            "is_downloaded": existing_ch_file is not None,
+            "filename": existing_ch_file
+        })
+        
+    return {
+        "success": True,
+        "count": len(tracks),
+        "tracks": tracks
+    }
+
+
+@app.post("/api/split-text")
+async def split_by_text(req: TextTimestampSplitRequest):
+    """사용자가 붙여넣은 타임스탬프 텍스트로 분할"""
+    chapters = parse_description_timestamps(req.text, req.duration)
+    if not chapters:
+        raise HTTPException(status_code=400, detail="유효한 타임스탬프(예: 00:00 곡제목)를 찾을 수 없습니다.")
+        
+    tracks = []
+    for idx, ch in enumerate(chapters):
+        st = ch["start_time"]
+        et = ch["end_time"]
+        ch_dur = int(et - st)
+        ch_id = f"{req.video_id}_t{idx+1}"
+        
+        existing_ch_file = None
+        for mp3_path in DOWNLOAD_DIR.glob(f"*{ch_id}*.mp3"):
+            existing_ch_file = mp3_path.name
+            break
+
+        tracks.append({
+            "id": ch_id,
+            "parent_id": req.video_id,
+            "chapter_index": idx + 1,
+            "title": ch["title"],
+            "uploader": req.uploader,
+            "start_time": st,
+            "end_time": et,
+            "duration": ch_dur,
+            "duration_str": format_duration(ch_dur),
+            "thumbnail": req.thumbnail,
+            "url": req.url,
+            "is_downloaded": existing_ch_file is not None,
+            "filename": existing_ch_file
+        })
+        
+    return {
+        "success": True,
+        "count": len(tracks),
+        "tracks": tracks
+    }
 
 
 @app.post("/api/zip")
