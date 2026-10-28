@@ -18,6 +18,8 @@ import yt_dlp
 from mutagen.id3 import ID3, TIT2, TPE1, TRCK, APIC
 from mutagen.mp3 import MP3
 
+from tunnel_manager import start_tunnel_background, get_tunnel_info
+
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOAD_DIR = BASE_DIR / "downloads"
 STATIC_DIR = BASE_DIR / "static"
@@ -137,9 +139,19 @@ class ZipRequest(BaseModel):
     track_ids: List[str]
 
 
+@app.on_event("startup")
+async def startup_event():
+    # 백그라운드에서 Cloudflare 터널 실행
+    start_tunnel_background(port=8088)
+
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
+
+@app.get("/api/tunnel")
+async def get_tunnel_status():
+    """스마트폰 접속용 Cloudflare 터널 주소 및 QR 정보 반환"""
+    return get_tunnel_info()
 
 
 @app.get("/api/status")

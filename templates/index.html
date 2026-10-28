@@ -196,12 +196,12 @@
         </div>
       </a>
 
-      <!-- 상단 우측 캐시 정리 버튼 -->
+      <!-- 상단 우측 캐시 정리 및 모바일 QR 버튼 -->
       <div class="flex items-center gap-2 shrink-0">
-        <div id="statusBadge" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ghibli-paper border border-ghibli-warmBorder text-ghibli-forest text-xs font-medium">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="systemVersion">정상 작동 중</span>
-        </div>
+        <button onclick="openMobileQrModal()" id="btnMobileQr" class="btn-forest px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm" title="스마트폰 접속용 QR코드 및 주소">
+          <i class="fa-solid fa-qrcode text-emerald-300"></i>
+          <span>스마트폰 접속</span>
+        </button>
         <button onclick="cleanCache()" title="임시 다운로드 파일 정리" class="btn-outline px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5">
           <i class="fa-solid fa-broom text-ghibli-sunlight"></i>
           <span class="hidden sm:inline">저장소 청소</span>
@@ -450,6 +450,46 @@
   <!-- 토스트 알림 컨테이너 -->
   <div id="toastContainer" class="fixed top-3 right-3 left-3 sm:left-auto sm:right-5 space-y-2 z-50 pointer-events-none"></div>
 
+  <!-- 스마트폰 접속 QR 모달 -->
+  <div id="qrModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="ghibli-card p-6 max-w-sm w-full text-center space-y-4 shadow-2xl border-2 border-ghibli-forest relative">
+      <button onclick="closeMobileQrModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-1" title="닫기">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="w-12 h-12 rounded-2xl bg-ghibli-matcha text-ghibli-forest flex items-center justify-center text-xl mx-auto shadow-sm">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+      </div>
+
+      <div>
+        <h3 class="text-base sm:text-lg font-bold text-ghibli-earth">스마트폰으로 바로 접속하기</h3>
+        <p class="text-xs text-ghibli-subText mt-1">
+          스마트폰 기본 카메라로 아래 QR을 비추면 바로 열립니다!
+        </p>
+      </div>
+
+      <!-- QR 이미지 박스 -->
+      <div class="p-3 bg-white rounded-2xl border border-ghibli-warmBorder shadow-inner inline-block">
+        <img id="modalQrImg" src="/static/mobile_qr.png" alt="스마트폰 접속 QR" class="w-44 h-44 sm:w-48 sm:h-48 mx-auto object-contain">
+      </div>
+
+      <!-- 터널 주소 & 복사 버튼 -->
+      <div class="space-y-2">
+        <div class="p-2.5 rounded-xl bg-ghibli-paper border border-ghibli-warmBorder text-xs text-ghibli-forest font-mono break-all font-semibold" id="modalTunnelUrl">
+          주소 발급 중...
+        </div>
+        <button onclick="copyTunnelUrl()" class="btn-forest w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow">
+          <i class="fa-regular fa-copy"></i>
+          <span>스마트폰 주소 복사하기</span>
+        </button>
+      </div>
+
+      <p class="text-[11px] text-gray-400">
+        🔒 Cloudflare 보안 터널을 통해 안전하게 암호화되어 연결됩니다.
+      </p>
+    </div>
+  </div>
+
   <!-- 프론트엔드 인터랙션 스크립트 -->
   <script>
     let analyzeData = null;
@@ -472,6 +512,56 @@
       }
     }
     checkStatus();
+
+    // Cloudflare 스마트폰 터널 주소 확인 및 모달 제어
+    let currentTunnelUrl = "";
+
+    async function fetchTunnelInfo() {
+      try {
+        const res = await fetch('/api/tunnel');
+        const data = await res.json();
+        if (data.active && data.url) {
+          currentTunnelUrl = data.url;
+          const urlEl = document.getElementById('modalTunnelUrl');
+          const qrEl = document.getElementById('modalQrImg');
+          if (urlEl) urlEl.textContent = data.url;
+          if (qrEl && data.qr_image) qrEl.src = data.qr_image + '?t=' + Date.now();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    fetchTunnelInfo();
+
+    const tunnelTimer = setInterval(async () => {
+      if (currentTunnelUrl) {
+        clearInterval(tunnelTimer);
+        return;
+      }
+      await fetchTunnelInfo();
+    }, 3000);
+
+    function openMobileQrModal() {
+      document.getElementById('qrModal').classList.remove('hidden');
+      fetchTunnelInfo();
+    }
+
+    function closeMobileQrModal() {
+      document.getElementById('qrModal').classList.add('hidden');
+    }
+
+    async function copyTunnelUrl() {
+      if (!currentTunnelUrl) {
+        showToast('주소를 생성 중입니다. 3초 뒤 다시 눌러주세요.', 'info');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(currentTunnelUrl);
+        showToast('스마트폰 접속 주소를 복사했습니다!', 'success');
+      } catch (err) {
+        showToast(currentTunnelUrl, 'info');
+      }
+    }
 
     // 음질 선택 UI 갱신
     function updateBitrateUI() {
