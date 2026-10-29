@@ -12,3 +12,4 @@ venv/
 *.log
 cloudflared.exe
 static/mobile_qr.png
+config.json
