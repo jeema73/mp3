@@ -545,8 +545,8 @@
         </p>
       </div>
 
-      <p class="text-[11px] text-gray-400">
-        🔒 Cloudflare 보안 터널을 통해 안전하게 암호화되어 연결됩니다.
+      <p class="text-[11px] text-gray-500" id="modalFooterNote">
+        ⚡ 별도 번호 입력 없이 스마트폰 카메라로 QR을 비추면 즉시 열립니다.
       </p>
     </div>
   </div>
@@ -607,8 +607,20 @@
           currentTunnelUrl = data.url;
           const urlEl = document.getElementById('modalTunnelUrl');
           const qrEl = document.getElementById('modalQrImg');
+          const hostBox = document.getElementById('modalHostIpBox');
+          const footerNote = document.getElementById('modalFooterNote');
+
           if (urlEl) urlEl.textContent = data.url;
           if (qrEl && data.qr_image) qrEl.src = data.qr_image + '?t=' + Date.now();
+
+          if (data.mode === 'direct') {
+            if (hostBox) hostBox.classList.add('hidden');
+            if (footerNote) footerNote.innerHTML = '<span class="text-emerald-700 font-medium">⚡ 별도 번호 입력 없이 스마트폰 카메라로 QR을 비추면 즉시 열립니다.</span>';
+          } else {
+            if (hostBox) hostBox.classList.remove('hidden');
+            if (footerNote) footerNote.textContent = '🔒 보안 터널을 통해 안전하게 암호화되어 연결됩니다.';
+          }
+
           if (data.host_ip) {
             const ipEl = document.getElementById('modalHostIpText');
             if (ipEl) ipEl.textContent = data.host_ip;

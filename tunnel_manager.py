@@ -20,7 +20,7 @@ def load_config():
                 return json.load(f)
         except Exception:
             pass
-    return {"subdomain": "ginami-mp3"}
+    return {"mode": "direct", "subdomain": "ginami-mp3"}
 
 def get_public_ip():
     try:
@@ -129,17 +129,31 @@ def _run_cloudflare(port: int = 8088):
         return False
 
 def _run_tunnel_thread(port: int = 8088):
+    global TUNNEL_URL
     cfg = load_config()
+    mode = cfg.get("mode", "direct")
+
+    # 1. 다이렉트 IP 모드 (가장 빠르고 깔끔한 직접 연결, 중간 인증창 없음)
+    if mode == "direct":
+        host_ip = get_public_ip()
+        TUNNEL_URL = f"http://{host_ip}:{port}"
+        save_qr_code(TUNNEL_URL)
+        print("\n" + "="*65)
+        print("  [SmartPhone Direct IP Mode Connected!]")
+        print(f"  Direct Mobile URL: {TUNNEL_URL}")
+        print("  * No intermediate service, instant high-speed connection")
+        print("="*65 + "\n")
+        return
+
     subdomain = cfg.get("subdomain", "ginami-mp3").strip() or "ginami-mp3"
 
-    # 1. Localtunnel 초단축 고정 주소 시도 (https://ginami.loca.lt)
+    # 2. Localtunnel 초단축 고정 주소 시도
     if _run_localtunnel(subdomain, port):
-        # 성공 시 계속 유지
         while TUNNEL_PROC and TUNNEL_PROC.poll() is None:
             time.sleep(1)
         return
 
-    # 2. 실패 시 Cloudflare 터널로 안전하게 전환
+    # 3. 실패 시 Cloudflare 터널로 안전하게 전환
     _run_cloudflare(port)
 
 def start_tunnel_background(port: int = 8088):
@@ -148,9 +162,14 @@ def start_tunnel_background(port: int = 8088):
 
 def get_tunnel_info():
     global TUNNEL_URL
+    host_ip = get_public_ip()
+    cfg = load_config()
+    mode = cfg.get("mode", "direct")
+    url = TUNNEL_URL or f"http://{host_ip}:8088"
     return {
-        "active": TUNNEL_URL is not None,
-        "url": TUNNEL_URL,
-        "qr_image": "/static/mobile_qr.png" if TUNNEL_URL else None,
-        "host_ip": get_public_ip()
+        "active": True,
+        "mode": mode,
+        "url": url,
+        "qr_image": "/static/mobile_qr.png",
+        "host_ip": host_ip
     }
