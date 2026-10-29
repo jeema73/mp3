@@ -529,6 +529,22 @@
         </button>
       </div>
 
+      <!-- 호스트 IP 비밀키 안내 (Localtunnel 최초 1회 인증용) -->
+      <div id="modalHostIpBox" class="p-2.5 rounded-xl bg-[#fef7ec] border border-[#d97736]/30 text-left space-y-1">
+        <div class="text-[11px] font-bold text-ghibli-sunlight flex items-center gap-1">
+          <i class="fa-solid fa-key"></i> 최초 접속 시 터널 비밀번호(Host IP):
+        </div>
+        <div class="flex items-center justify-between">
+          <span id="modalHostIpText" class="font-mono text-xs font-bold text-ghibli-earth">119.192.16.22</span>
+          <button onclick="copyHostIp()" class="px-2 py-0.5 rounded-lg bg-white border border-[#ded5c4] text-[10px] font-semibold text-ghibli-forest">
+            IP 복사
+          </button>
+        </div>
+        <p class="text-[10px] text-gray-500">
+          * 스마트폰 첫 접속 시 파란 영문 창이 나오면 위 숫자를 넣고 [Submit]을 누르시면 됩니다 (최초 1회만).
+        </p>
+      </div>
+
       <p class="text-[11px] text-gray-400">
         🔒 Cloudflare 보안 터널을 통해 안전하게 암호화되어 연결됩니다.
       </p>
@@ -593,6 +609,10 @@
           const qrEl = document.getElementById('modalQrImg');
           if (urlEl) urlEl.textContent = data.url;
           if (qrEl && data.qr_image) qrEl.src = data.qr_image + '?t=' + Date.now();
+          if (data.host_ip) {
+            const ipEl = document.getElementById('modalHostIpText');
+            if (ipEl) ipEl.textContent = data.host_ip;
+          }
         }
       } catch (e) {
         console.error(e);
@@ -627,6 +647,16 @@
         showToast('스마트폰 접속 주소를 복사했습니다!', 'success');
       } catch (err) {
         showToast(currentTunnelUrl, 'info');
+      }
+    }
+
+    async function copyHostIp() {
+      const ip = document.getElementById('modalHostIpText').textContent.trim();
+      try {
+        await navigator.clipboard.writeText(ip);
+        showToast('비밀번호(IP)를 복사했습니다: ' + ip, 'success');
+      } catch (e) {
+        showToast(ip, 'info');
       }
     }
 
