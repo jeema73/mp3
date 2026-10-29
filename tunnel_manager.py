@@ -20,7 +20,7 @@ def load_config():
                 return json.load(f)
         except Exception:
             pass
-    return {"subdomain": "ginami"}
+    return {"subdomain": "ginami-mp3"}
 
 def get_public_ip():
     try:
@@ -40,7 +40,7 @@ def save_qr_code(url: str):
     except Exception as e:
         print("[QR Error]:", e)
 
-def _run_localtunnel(subdomain: str = "ginami", port: int = 8088):
+def _run_localtunnel(subdomain: str = "ginami-mp3", port: int = 8088):
     global TUNNEL_URL, TUNNEL_PROC
     cmd = ["cmd.exe", "/c", f"npx --yes localtunnel --port {port} --subdomain {subdomain}"]
     try:
@@ -130,7 +130,7 @@ def _run_cloudflare(port: int = 8088):
 
 def _run_tunnel_thread(port: int = 8088):
     cfg = load_config()
-    subdomain = cfg.get("subdomain", "ginami").strip() or "ginami"
+    subdomain = cfg.get("subdomain", "ginami-mp3").strip() or "ginami-mp3"
 
     # 1. Localtunnel 초단축 고정 주소 시도 (https://ginami.loca.lt)
     if _run_localtunnel(subdomain, port):
