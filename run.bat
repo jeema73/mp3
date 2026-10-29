@@ -1,7 +1,6 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
-title 기나미 MP3 추출기
+title Ginami MP3 Studio
 
 set "PY_EXE=python"
 if exist "C:\Users\jeema\AppData\Local\hermes\hermes-agent\venv\Scripts\python.exe" (
@@ -9,13 +8,13 @@ if exist "C:\Users\jeema\AppData\Local\hermes\hermes-agent\venv\Scripts\python.e
 )
 
 echo ====================================================================
-echo   🎵 기나미 MP3 추출기 (4K High Quality Audio)
-echo   유튜브 단일 영상 및 재생목록(Playlist) 초고음질 320kbps MP3 변환기
+echo   [Ginami MP3 Studio] 4K High Quality YouTube MP3 Extractor
+echo   Starting server and Cloudflare Mobile Tunnel...
 echo.
-echo   [PC 접속 주소]: http://127.0.0.1:8088
-echo   [스마트폰 접속]: 화면 우측 상단 [스마트폰 접속] 버튼의 QR코드를 카메라로 비추세요!
+echo   - PC Access:     http://127.0.0.1:8088
+echo   - Mobile Access: Click [SmartPhone QR] on top-right of web page
 echo.
-echo   (종료하려면 이 창에서 Ctrl+C 를 누르시거나 창을 닫으세요)
+echo   (Press Ctrl+C or close this window to stop the server)
 echo ====================================================================
 echo.
 
@@ -25,7 +24,7 @@ start "" "http://127.0.0.1:8088"
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo --------------------------------------------------------------------
-    echo [ERROR] 서버 실행 중 오류가 발생했습니다 (코드: %ERRORLEVEL%).
+    echo [ERROR] Server terminated with error code %ERRORLEVEL%.
     echo --------------------------------------------------------------------
     pause
 )
